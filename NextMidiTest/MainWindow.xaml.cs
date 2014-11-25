@@ -64,6 +64,7 @@ namespace NextMidiTest
                 return;
             }
             // ファイルパスの指定
+            //            string path = "test.mid";
             string path = "test.mid";
             if (!File.Exists(path))
             {
@@ -71,7 +72,7 @@ namespace NextMidiTest
                 return;
             }
             // midiファイルの読み込み
-            MidiData = MidiReader.ReadFrom("test.mid");
+            MidiData = MidiReader.ReadFrom("test.mid", Encoding.GetEncoding("shift-jis"));
             MidiFileDomain domain = new MidiFileDomain(MidiData);
             // Playerの作成
             Player = new MidiPlayer(MyMidiOutPort);
@@ -85,6 +86,23 @@ namespace NextMidiTest
         {
             MyMidiOutPort.Close();
         }
+
+        private void Slider_Value_VelocityChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (MyMidiOutPort != null)
+            {
+                MyMidiOutPort.deltaVelocity = (int)e.NewValue;
+            }
+        }
+
+        private void Slider_Value_TempoChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (MyMidiOutPort != null)
+            {
+                Console.WriteLine("{0} -> {1}", MyMidiOutPort.Coef, e.NewValue);
+                MyMidiOutPort.Coef = e.NewValue;
+            }
+        }
     }
 }
 
@@ -94,7 +112,18 @@ namespace NextMidiTest
 class MyMidiOutPort : IMidiOutPort
 {
     MidiOutPort Delegate;
-    private int Coef = 1;
+    /// <summary>
+    /// Tickの比率
+    /// </summary>
+    public double Coef = 1.0;
+    /// <summary>
+    /// Velocityの増減量
+    /// </summary>
+    public int deltaVelocity = 0;
+    /// <summary>
+    /// Velocityの最大
+    /// </summary>
+    private const byte MaxVelocity = 127;
     /// <summary>
     /// MyMidiOutPort のインスタンス
     /// </summary>
@@ -148,7 +177,10 @@ class MyMidiOutPort : IMidiOutPort
     public void Send(IMidiEvent data)
     {
         //ここでデータ加工
-        modifyData(data);
+        if (data.RequireToSend)
+        {
+            modifyData(data);
+        }
         Delegate.Send(data);
     }
 
@@ -158,7 +190,9 @@ class MyMidiOutPort : IMidiOutPort
         {
             // Velocity, Tickの変更
             var Note = (NoteOnEvent)data;
-            Note.Velocity = 0;
+            Note.Velocity = (int)(Note.Velocity) + deltaVelocity > 0 ? (byte)Math.Min(127, (int)(Note.Velocity) + deltaVelocity) : (byte)0;
+            Note.Tick = (int)(Note.Tick * Coef);
+            Console.WriteLine("{0}", Coef);
         }
     }
 }
