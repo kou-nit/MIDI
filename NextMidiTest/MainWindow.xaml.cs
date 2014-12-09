@@ -43,6 +43,11 @@ namespace NextMidiTest
             this.Closed += MainWindow_Closed;
         }
 
+        /// <summary>
+        /// MainWindowが閉じたときのイベント
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         void MainWindow_Closed(object sender, EventArgs e)
         {
             Player.Stop();
@@ -52,8 +57,6 @@ namespace NextMidiTest
         {
             // ポートの指定
             MyMidiOutPort = new MyMidiOutPort(new MidiOutPort(0));
-            Console.WriteLine(MyMidiOutPort.IsOpen);
-
             // 指定したポートを開く
             try
             {
@@ -82,7 +85,11 @@ namespace NextMidiTest
             Player.Play(domain);
         }
 
-
+        /// <summary>
+        /// Playerが止まったときのイベント
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         void Player_Stopped(object sender, EventArgs e)
         {
             MyMidiOutPort.Close();
