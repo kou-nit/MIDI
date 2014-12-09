@@ -2,7 +2,9 @@
 using NextMidi.Data.Domain;
 using NextMidi.Data.Score;
 using NextMidi.DataElement;
+using NextMidi.DataElement.MetaData;
 using NextMidi.Filing.Midi;
+using NextMidi.MidiPort.Core;
 using NextMidi.MidiPort.Output;
 using NextMidi.Time;
 using System;
@@ -30,7 +32,6 @@ namespace NextMidiTest
     /// </summary>
     public partial class MainWindow : Window
     {
-
         MyMidiOutPort MyMidiOutPort;
         MidiData MidiData;
         MidiPlayer Player;
@@ -64,7 +65,6 @@ namespace NextMidiTest
                 return;
             }
             // ファイルパスの指定
-            //            string path = "test.mid";
             string path = "test.mid";
             if (!File.Exists(path))
             {
@@ -72,8 +72,9 @@ namespace NextMidiTest
                 return;
             }
             // midiファイルの読み込み
-            MidiData = MidiReader.ReadFrom("test.mid", Encoding.GetEncoding("shift-jis"));
-            MidiFileDomain domain = new MidiFileDomain(MidiData);
+            MidiData = MidiReader.ReadFrom(path, Encoding.GetEncoding("shift-jis"));
+            MyMidiFileDomain domain = new MyMidiFileDomain(MidiData);
+
             // Playerの作成
             Player = new MidiPlayer(MyMidiOutPort);
             Player.Stopped += Player_Stopped;
@@ -99,100 +100,196 @@ namespace NextMidiTest
         {
             if (MyMidiOutPort != null)
             {
-                Console.WriteLine("{0} -> {1}", MyMidiOutPort.Coef, e.NewValue);
-                MyMidiOutPort.Coef = e.NewValue;
+                MyTempoMap.Coef = e.NewValue;
             }
         }
     }
-}
 
-/// <summary>
-/// MidiOutPortのSend改良版
-/// </summary>
-class MyMidiOutPort : IMidiOutPort
-{
-    MidiOutPort Delegate;
     /// <summary>
-    /// Tickの比率
+    /// MidiOutPortのSend改良版
     /// </summary>
-    public double Coef = 1.0;
-    /// <summary>
-    /// Velocityの増減量
-    /// </summary>
-    public int deltaVelocity = 0;
-    /// <summary>
-    /// Velocityの最大
-    /// </summary>
-    private const byte MaxVelocity = 127;
-    /// <summary>
-    /// MyMidiOutPort のインスタンス
-    /// </summary>
-    /// <param name="index"></param>
-    public MyMidiOutPort(MidiOutPort MidiOutPort)
+    public class MyMidiOutPort : IMidiOutPort
     {
-        Delegate = MidiOutPort;
-    }
-    /// <summary>
-    /// MidiOutPortのIsOpen
-    /// </summary>
-    public bool IsOpen
-    {
-        get
+        MidiOutPort Delegate;
+        /// <summary>
+        /// Velocityの増減量
+        /// </summary>
+        public int deltaVelocity = 0;
+        /// <summary>
+        /// Velocityの最大
+        /// </summary>
+        private const byte MaxVelocity = 127;
+        /// <summary>
+        /// MyMidiOutPort のインスタンス
+        /// </summary>
+        /// <param name="index"></param>
+        public MyMidiOutPort(MidiOutPort MidiOutPort)
         {
-            return Delegate.IsOpen;
+            Delegate = MidiOutPort;
         }
-        set
+        /// <summary>
+        /// MidiOutPortのIsOpen
+        /// </summary>
+        public bool IsOpen
         {
-            Delegate.IsOpen = value;
+            get
+            {
+                return Delegate.IsOpen;
+            }
+            set
+            {
+                Delegate.IsOpen = value;
+            }
         }
-    }
-    /// <summary>
-    /// MidiOutPortのName
-    /// </summary>
-    public string Name
-    {
-        get
+        /// <summary>
+        /// MidiOutPortのName
+        /// </summary>
+        public string Name
         {
-            return Delegate.Name;
+            get
+            {
+                return Delegate.Name;
+            }
         }
-    }
-    /// <summary>
-    /// MidiOutPortのClose()
-    /// </summary>
-    public void Close()
-    {
-        Delegate.Close();
-    }
-    /// <summary>
-    /// MidiOutPortのOpen()
-    /// </summary>
-    public void Open()
-    {
-        Delegate.Open();
-    }
-    /// <summary>
-    /// dataを加工し, MidiOutPortのSendを使う
-    /// </summary>
-    /// <param name="data"></param>
-    public void Send(IMidiEvent data)
-    {
-        //ここでデータ加工
-        if (data.RequireToSend)
+        /// <summary>
+        /// MidiOutPortのClose()
+        /// </summary>
+        public void Close()
         {
-            modifyData(data);
+            Delegate.Close();
         }
-        Delegate.Send(data);
+        /// <summary>
+        /// MidiOutPortのOpen()
+        /// </summary>
+        public void Open()
+        {
+            Delegate.Open();
+        }
+        /// <summary>
+        /// dataを加工し, MidiOutPortのSendを使う
+        /// </summary>
+        /// <param name="data"></param>
+        public void Send(IMidiEvent data)
+        {
+            //ここでデータ加工
+            if (data.RequireToSend)
+            {
+                modifyData(data);
+            }
+            Delegate.Send(data);
+        }
+
+        private void modifyData(IMidiEvent data)
+        {
+            if (data is NoteOnEvent)
+            {
+                // Velocity, Tickの変更
+                var Note = (NoteOnEvent)data;
+                Note.Velocity = (int)(Note.Velocity) + deltaVelocity > 0 ? (byte)Math.Min(127, (int)(Note.Velocity) + deltaVelocity) : (byte)0;
+            }
+        }
+    }
+    /// <summary>
+    /// MyTempoMap用MidiFileDomain
+    /// </summary>
+    public class MyMidiFileDomain : IMidiFileDomain
+    {
+        MidiFileDomain Delegate;
+        // TempoMapをMyTempoMapに置き換え
+        MyTempoMap MyTempoMap;
+
+        public MyMidiFileDomain(MidiData midiData)
+        {
+            Delegate = new MidiFileDomain(midiData);
+            MyTempoMap = new MyTempoMap(Delegate);
+        }
+        /// <summary>
+        /// MidiFileDomainのMidiData
+        /// </summary>
+        public MidiData MidiData
+        {
+            get
+            {
+                return Delegate.MidiData;
+            }
+        }
+        /// <summary>
+        /// MidiFileDomainのMusicMap
+        /// </summary>
+        public IMusicMap MusicMap
+        {
+            get
+            {
+                return Delegate.MusicMap;
+            }
+        }
+        /// <summary>
+        /// MyTempoMapに置換
+        /// </summary>
+        public ITempoMap TempoMap
+        {
+            get
+            {
+                return MyTempoMap;
+            }
+        }
     }
 
-    private void modifyData(IMidiEvent data)
+    /// <summary>
+    /// Tick変更用(interface:ITempoMapの実装)
+    /// </summary>
+    public class MyTempoMap : ITempoMap
     {
-        if (data is NoteOnEvent)
+        ITempoMap Delegate;
+        /// <summary>
+        /// Tickの比率
+        /// </summary>
+        static public double Coef = 1.0;
+        /// <summary>
+        /// MIDIファイルのデータ境界を定めるinterfaceからTempoMapを取得
+        /// </summary>
+        /// <param name="domain"></param>
+        public MyTempoMap(IMidiFileDomain domain)
         {
-            // Velocity, Tickの変更
-            var Note = (NoteOnEvent)data;
-            Note.Velocity = (int)(Note.Velocity) + deltaVelocity > 0 ? (byte)Math.Min(127, (int)(Note.Velocity) + deltaVelocity) : (byte)0;
-            Note.Tick = (int)(Note.Tick * Coef);
-            Console.WriteLine("{0}", Coef);
+            Delegate = domain.TempoMap;
+        }
+        /// <summary>
+        /// 指定した時刻のテンポ取得
+        /// </summary>
+        /// <param name="tick"></param>
+        /// <returns></returns>
+        public int GetTempo(int tick)
+        {
+            return Delegate.GetTempo(tick);
+        }
+        /// <summary>
+        /// Tick値をミリ秒に換算
+        /// </summary>
+        /// <param name="tick"></param>
+        /// <returns></returns>
+        public int ToMilliSeconds(int tick)
+        {
+            return Delegate.ToMilliSeconds(tick);
+        }
+        /// <summary>
+        /// ミリ秒をTick値に換算
+        /// </summary>
+        /// <param name="msec"></param>
+        /// <returns></returns>
+        public int ToTick(int msec)
+        {
+            int tick = Delegate.ToTick(msec);
+            // ここでtickの値を比率で変更
+            return (int)((double)tick * Coef);
+        }
+        /// <summary>
+        /// Tick値を時刻に換算
+        /// </summary>
+        /// <param name="tick"></param>
+        /// <returns></returns>
+        public TimeSpan ToTime(int tick)
+        {
+            return Delegate.ToTime(tick);
         }
     }
 }

@@ -4,7 +4,7 @@
         Title="MainWindow" Height="350" Width="525">
     <Grid>
         <Slider Name="Velocity" HorizontalAlignment="Left" Height="41" Margin="68,55,0,0" VerticalAlignment="Top" Width="337" ValueChanged="Slider_Value_VelocityChanged" Minimum="-127" Maximum="127"/>
-        <Slider Name="Tempo" HorizontalAlignment="Left" Height="46" Margin="68,195,0,0" VerticalAlignment="Top" Width="337" ValueChanged="Slider_Value_TempoChanged" TickFrequency="10" Maximum="1000" MinHeight="10"/>
+        <Slider Name="Tempo" HorizontalAlignment="Left" Height="46" Margin="68,195,0,0" VerticalAlignment="Top" Width="337" ValueChanged="Slider_Value_TempoChanged" TickFrequency="0.1" Maximum="3" MinHeight="10" Minimum="0.5"/>
         <Label Content="Velocity" HorizontalAlignment="Left" Margin="88,20,0,0" VerticalAlignment="Top" FontSize="10" ScrollViewer.VerticalScrollBarVisibility="Disabled"/>
         <Label Content="Tempo" HorizontalAlignment="Left" Margin="88,165,0,0" VerticalAlignment="Top"/>
     </Grid>
